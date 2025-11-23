@@ -43,7 +43,6 @@ Format yang didukung:
 ```bash
 # Install dependencies
 pip install oletools
-pip install pillow
 
 # Clone repository
 git clone https://github.com/<username>/TA_PROGDAS_Radhitya-Kurnia-Asmara_21120125130084_Forensic-Analyzer-Dokumen-Office.git
