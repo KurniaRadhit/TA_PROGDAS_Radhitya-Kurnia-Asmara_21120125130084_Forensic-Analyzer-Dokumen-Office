@@ -11,8 +11,8 @@ Aplikasi **GUI Python** untuk melakukan **analisis forensik dan keamanan** pada 
 ---
 
 ## 🖼 Preview Aplikasi
-📷 Tampilan aplikasi dapat dilihat pada link berikut:  
-https://drive.google.com/file/d/1I2DN1kP5Ozr9y3j4RzE0z1aiTfnw7oDD/view?usp=sharing
+![Preview Aplikasi](https://raw.githubusercontent.com/KurniaRadhit/TA_PROGDAS_Radhitya-Kurnia-Asmara_21120125130084_Forensic-Analyzer-Dokumen-Office/main/preview.png)
+
 
 ---
 
