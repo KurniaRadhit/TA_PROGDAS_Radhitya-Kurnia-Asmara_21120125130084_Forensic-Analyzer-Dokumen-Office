@@ -29,13 +29,11 @@ class StyleManager:
 class ZipFooterAnalyzer:
     @staticmethod
     def find_footer_end(data: bytes) -> int | None:
-        idx = data.rfind(ZIP_EOCD)
-        if idx == -1:
+        if (idx := data.rfind(ZIP_EOCD)) == -1:
             return None
         try:
             comment_len = int.from_bytes(data[idx + 20:idx + 22], "little")
-            end = idx + 22 + comment_len
-            return end if end <= len(data) else None
+            return end if (end := idx + 22 + comment_len) <= len(data) else None
         except:
             return None
 
@@ -48,68 +46,62 @@ class FormatHelper:
                 lines.extend([f"{pad}{k}:", FormatHelper.format_dict(v, indent + 2)])
             elif isinstance(v, list):
                 lines.append(f"{pad}{k}:")
-                lines.extend([f"{pad}  - {item}" for item in v])
+                lines.extend(f"{pad}  - {item}" for item in v)
             else:
                 lines.append(f"{pad}{k}: {v}")
         return "\n".join(lines)
 
-class FileDialogHelper:
-    @staticmethod
-    def browse_file(var, title, filetypes):
-        if path := filedialog.askopenfilename(title=title, filetypes=filetypes):
-            var.set(path)
-    
-    @staticmethod
-    def browse_save(var, default_ext):
-        if path := filedialog.asksaveasfilename(title="Simpan hasil", defaultextension=default_ext,
-                                                filetypes=[("Document", f"*{default_ext}")]):
-            var.set(path)
-
-class AnalyzerPanel:
-    def __init__(self, parent, file_path_var):
+class BasePanel:
+    def __init__(self, parent, file_path_var, title=None):
         self.file_path = file_path_var
         self.frame = ttk.Frame(parent)
-        ttk.Label(self.frame, text="Hasil Analisa Dokumen", 
-                 font=("Segoe UI", 12, "bold")).pack(anchor="w", pady=(0, 8))
+        if title:
+            ttk.Label(self.frame, text=title, font=("Segoe UI", 12, "bold")).pack(anchor="w", pady=(0, 8))
+    
+    def check_file_selected(self, silent=False):
+        if not self.file_path.get():
+            if not silent:
+                messagebox.showwarning("Peringatan", 
+                    "Silakan pilih file .docx • .docm • .dotx • .dotm terlebih dahulu!")
+            return False
+        return True
+
+class AnalyzerPanel(BasePanel):
+    def __init__(self, parent, file_path_var):
+        super().__init__(parent, file_path_var, "Hasil Analisa Dokumen")
         self.txt_output = tk.Text(self.frame, height=32)
         StyleManager.style_textbox(self.txt_output)
         self.txt_output.pack(fill="both", expand=True)
     
-    def analyze(self, silent=False):
-        if not self.file_path.get():
-            if not silent:
-                messagebox.showwarning("Peringatan", "Pilih file dulu.")
-            return
-        try:
-            self.txt_output.delete("1.0", tk.END)
-            self.txt_output.insert(tk.END, FormatHelper.format_dict(analyze_office(self.file_path.get())))
-        except Exception as e:
-            messagebox.showerror("Error", str(e))
+    def on_show(self):
+        self.txt_output.delete("1.0", tk.END)
+        if self.check_file_selected():
+            try:
+                self.txt_output.insert(tk.END, FormatHelper.format_dict(analyze_office(self.file_path.get())))
+            except Exception as e:
+                messagebox.showerror("Error", str(e))
 
-class SteganographyPanel:
+class SteganographyPanel(BasePanel):
     def __init__(self, parent, file_path_var):
-        self.file_path = file_path_var
+        super().__init__(parent, file_path_var, title=None)
         self.file_out = tk.StringVar()
         self.mode = tk.StringVar(value="TEXT")
-        self.frame = ttk.Frame(parent)
         self._build_ui()
+    
+    def on_show(self):
+        self.txt_payload.delete("1.0", tk.END)
+        self.file_out.set("")
+        self.check_file_selected()
     
     def _build_ui(self):
         ttk.Label(self.frame, text="Steganography Tools", 
                  font=("Segoe UI", 12, "bold")).grid(row=0, column=0, columnspan=3, sticky="w", pady=(0, 10))
-        
-        for i, (label, var, cmd) in enumerate([
-            ("Output File:", self.file_out, lambda: FileDialogHelper.browse_save(
-                self.file_out, os.path.splitext(self.file_path.get())[1] or ".docx")),
-            ("Mode Payload:", self.mode, None)
-        ], 1):
-            ttk.Label(self.frame, text=label).grid(row=i, column=0, sticky="w", pady=5)
-            if cmd:
-                ttk.Entry(self.frame, textvariable=var, width=70).grid(row=i, column=1, padx=4)
-                ttk.Button(self.frame, text="Browse", command=cmd).grid(row=i, column=2)
-            else:
-                ttk.Combobox(self.frame, textvariable=var, values=["TEXT", "HASH", "JSON"], 
-                           width=10).grid(row=i, column=1, sticky="w")
+        ttk.Label(self.frame, text="Output File:").grid(row=1, column=0, sticky="w", pady=5)
+        ttk.Entry(self.frame, textvariable=self.file_out, width=70).grid(row=1, column=1, padx=4)
+        ttk.Button(self.frame, text="Browse", command=self._browse_output).grid(row=1, column=2)
+        ttk.Label(self.frame, text="Mode Payload:").grid(row=2, column=0, sticky="w", pady=5)
+        ttk.Combobox(self.frame, textvariable=self.mode, values=["TEXT", "HASH", "JSON"], 
+                    width=10).grid(row=2, column=1, sticky="w")
         ttk.Label(self.frame, text="Payload / Pesan Rahasia:").grid(row=3, column=0, sticky="nw", pady=5)
         self.txt_payload = tk.Text(self.frame, height=12)
         StyleManager.style_textbox(self.txt_payload)
@@ -118,6 +110,12 @@ class SteganographyPanel:
         btns.grid(row=4, column=1, sticky="e", pady=8)
         ttk.Button(btns, text="Embed", command=self.embed).pack(side="left", padx=5)
         ttk.Button(btns, text="Extract", command=self.extract).pack(side="left")
+    
+    def _browse_output(self):
+        ext = os.path.splitext(self.file_path.get())[1] or ".docx"
+        if path := filedialog.asksaveasfilename(title="Simpan hasil", defaultextension=ext,
+                                               filetypes=[("Document", f"*{ext}")]):
+            self.file_out.set(path)
     
     def embed(self):
         if not self.file_path.get() or not self.file_out.get():
@@ -129,12 +127,12 @@ class SteganographyPanel:
         try:
             embed_stegano_office(self.file_path.get(), self.file_out.get(), val, self.mode.get())
             messagebox.showinfo("Sukses", f"Payload berhasil di-embed:\n{self.file_out.get()}")
+            self.txt_payload.delete("1.0", tk.END)
         except Exception as e:
             messagebox.showerror("Error", str(e))
     
     def extract(self):
-        if not self.file_path.get():
-            messagebox.showwarning("Peringatan", "Pilih dokumen dulu.")
+        if not self.check_file_selected():
             return
         try:
             msg = extract_stegano_office(self.file_path.get())
@@ -146,21 +144,20 @@ class SteganographyPanel:
         except Exception as e:
             messagebox.showerror("Error", str(e))
 
-class ExtractorPanel:
+class ExtractorPanel(BasePanel):
     def __init__(self, parent, file_path_var):
-        self.file_path = file_path_var
-        self.frame = ttk.Frame(parent)
+        super().__init__(parent, file_path_var, "Macro & Hidden Payload After ZIP Footer")
         self._build_ui()
     
+    def on_show(self):
+        self.txt_embedded.delete("1.0", tk.END)
+        if self.check_file_selected():
+            self._display_vba_macros()
+            self._display_hidden_payload()
+    
     def _build_ui(self):
-        ttk.Label(self.frame, text=" Macro & Hidden Payload After ZIP Footer", 
-                 font=("Segoe UI", 12, "bold")).pack(anchor="w", pady=(0, 10))
-        btn_bar = ttk.Frame(self.frame)
-        btn_bar.pack(anchor="w", pady=(0, 10))
-        ttk.Button(btn_bar, text="Tampilkan Macro & Hidden Payload", 
-                  command=self.show_embedded).pack(side="left", padx=(0, 8))
-        ttk.Button(btn_bar, text="Save Hidden Payload", 
-                  command=self.save_payload).pack(side="left")
+        ttk.Button(self.frame, text="Save Hidden Payload", 
+                  command=self.save_payload).pack(anchor="w", pady=(0, 10))
         wrapper = ttk.Frame(self.frame)
         wrapper.pack(fill="both", expand=True)
         self.txt_embedded = tk.Text(wrapper, height=28)
@@ -169,14 +166,6 @@ class ExtractorPanel:
         scrollbar = ttk.Scrollbar(wrapper, command=self.txt_embedded.yview)
         scrollbar.pack(side="right", fill="y")
         self.txt_embedded.config(yscrollcommand=scrollbar.set)
-    
-    def show_embedded(self):
-        if not self.file_path.get():
-            messagebox.showwarning("Peringatan", "Pilih dokumen dulu.")
-            return
-        self.txt_embedded.delete("1.0", tk.END)
-        self._display_vba_macros()
-        self._display_hidden_payload()
     
     def _display_vba_macros(self):
         self.txt_embedded.insert(tk.END, "[VBA Macro - vbaProject.bin]\n" + "-" * 100 + "\n")
@@ -198,16 +187,15 @@ class ExtractorPanel:
             self.txt_embedded.insert(tk.END, "Tidak ditemukan data setelah footer ZIP/dokumen.\n")
             return
         payload = raw[footer_end:]
-        if len(payload) < 1:
+        if not payload:
             self.txt_embedded.insert(tk.END, "Data setelah footer ZIP berukuran 0 byte.\n")
             return
         ext_guess = guess_extension(payload) or ".bin"
-        magic_bytes_hex = payload[:16].hex(" ").upper()
+        magic_hex = payload[:16].hex(" ").upper() 
         self.txt_embedded.insert(tk.END, 
             f"Ukuran payload : {len(payload)} byte\n"
             f"Tebakan ekstensi: {ext_guess}\n"
-            f"Magic bytes     : {magic_bytes_hex}\n\n"
-        )
+            f"Magic bytes     : {magic_hex}\n\n")
         preview = payload[:512]
         try:
             text = ''.join(c if c.isprintable() or c in '\n\r\t' else '.' 
@@ -219,8 +207,7 @@ class ExtractorPanel:
             self.txt_embedded.insert(tk.END, "[Binary preview tidak dapat didekode]\n")
     
     def save_payload(self):
-        if not self.file_path.get():
-            messagebox.showwarning("Peringatan", "Pilih dokumen dulu.")
+        if not self.check_file_selected():
             return
         if not (out_dir := filedialog.askdirectory(title="Pilih folder output hidden payload (after footer)")):
             return
@@ -246,22 +233,20 @@ class ExtractorPanel:
                 out.write(payload)
         except Exception as e:
             messagebox.showerror("Error", f"Gagal menyimpan payload: {e}")
-            return  
-        magic_bytes_hex = payload[:16].hex(" ").upper()
+            return
+        magic_hex = payload[:16].hex(" ").upper()
         messagebox.showinfo("Sukses",
             f"Payload setelah footer ZIP berhasil disimpan.\n\n"
             f"Lokasi   : {out_path}\n"
             f"Ukuran   : {len(payload)} byte\n"
             f"Tebakan  : {ext_guess}\n"
-            f"Magic    : {magic_bytes_hex}"
-        )
+            f"Magic    : {magic_hex}")
         self.txt_embedded.insert(tk.END, 
             f"\n[Save Hidden Payload (After ZIP Footer)]\n"
             f"Output file : {out_path}\n"
             f"Ukuran      : {len(payload)} byte\n"
             f"Ekstensi    : {ext_guess}\n"
-            f"Magic bytes : {magic_bytes_hex}\n"
-        )
+            f"Magic bytes : {magic_hex}\n")
 
 class ForensicAnalyzerApp:
     def __init__(self, root):
@@ -271,6 +256,7 @@ class ForensicAnalyzerApp:
         self.root.minsize(1000, 650)
         StyleManager.apply_modern_theme(self.root)
         self.file_path = tk.StringVar()
+        self.is_first_load = True
         self._build_ui()
     
     def _build_ui(self):
@@ -278,32 +264,35 @@ class ForensicAnalyzerApp:
         top.pack(fill="x")
         ttk.Label(top, text="File:", font=("Segoe UI", 11, "bold")).pack(side="left")
         ttk.Entry(top, textvariable=self.file_path, width=70).pack(side="left", padx=8)
-        ttk.Button(top, text="Browse", 
-                  command=lambda: FileDialogHelper.browse_file(
-                      self.file_path, "Pilih dokumen",
-                      [("Word Documents", "*.docx *.docm *.dotm *.dotx")]
-                  )).pack(side="left", padx=4)
+        ttk.Button(top, text="Browse", command=self._browse_file).pack(side="left", padx=4)
         nav = ttk.Frame(self.root, padding=10)
         nav.pack(fill="x")
-        for text, cmd in [
-            ("Analisa Dokumen", lambda: [self.show_frame(self.analyzer_panel.frame), self.analyzer_panel.analyze()]),
-            ("Stegano", lambda: self.show_frame(self.stego_panel.frame)),
-            ("Extractor Embedded", lambda: self.show_frame(self.extractor_panel.frame))
-        ]:
-            ttk.Button(nav, text=text, command=cmd).pack(side="left", padx=6)
         content = ttk.Frame(self.root, padding=10)
         content.pack(fill="both", expand=True)
         content.pack_propagate(False)
-        self.analyzer_panel = AnalyzerPanel(content, self.file_path)
-        self.stego_panel = SteganographyPanel(content, self.file_path)
-        self.extractor_panel = ExtractorPanel(content, self.file_path)
-        self.panels = [self.analyzer_panel.frame, self.stego_panel.frame, self.extractor_panel.frame]
-        self.show_frame(self.analyzer_panel.frame)
+        self.panels = [
+            AnalyzerPanel(content, self.file_path),
+            SteganographyPanel(content, self.file_path),
+            ExtractorPanel(content, self.file_path)
+        ]
+        for text, panel in zip(["Analisa Dokumen", "Stegano", "Extractor Embedded"], self.panels):
+            ttk.Button(nav, text=text, 
+                      command=lambda p=panel: self.show_panel(p)).pack(side="left", padx=6)
+        self.show_panel(self.panels[0])
     
-    def show_frame(self, frame):
-        for panel in self.panels:
-            panel.pack_forget()
-        frame.pack(fill="both", expand=True)
+    def _browse_file(self):
+        if path := filedialog.askopenfilename(title="Pilih dokumen",
+                filetypes=[("Word Documents", "*.docx *.docm *.dotm *.dotx")]):
+            self.file_path.set(path)
+    
+    def show_panel(self, panel):
+        for p in self.panels:
+            p.frame.pack_forget()
+        panel.frame.pack(fill="both", expand=True)
+        
+        if not self.is_first_load and hasattr(panel, 'on_show'):
+            panel.on_show()
+        self.is_first_load = False
     
     def run(self):
         self.root.mainloop()
