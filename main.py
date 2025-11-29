@@ -65,6 +65,9 @@ class BasePanel:
                     "Silakan pilih file .docx • .docm • .dotx • .dotm terlebih dahulu!")
             return False
         return True
+    
+    def on_file_changed(self):
+        pass
 
 class AnalyzerPanel(BasePanel):
     def __init__(self, parent, file_path_var):
@@ -92,6 +95,10 @@ class SteganographyPanel(BasePanel):
         self.txt_payload.delete("1.0", tk.END)
         self.file_out.set("")
         self.check_file_selected()
+    
+    def on_file_changed(self):
+        self.txt_payload.delete("1.0", tk.END)
+        self.file_out.set("")
     
     def _build_ui(self):
         ttk.Label(self.frame, text="Steganography Tools", 
@@ -258,6 +265,12 @@ class ForensicAnalyzerApp:
         self.file_path = tk.StringVar()
         self.is_first_load = True
         self._build_ui()
+        self.file_path.trace_add("write", self._on_file_path_changed)
+    
+    def _on_file_path_changed(self, *args):
+        for panel in self.panels:
+            if hasattr(panel, 'on_file_changed'):
+                panel.on_file_changed()
     
     def _build_ui(self):
         top = ttk.Frame(self.root, padding=15)
@@ -289,7 +302,6 @@ class ForensicAnalyzerApp:
         for p in self.panels:
             p.frame.pack_forget()
         panel.frame.pack(fill="both", expand=True)
-        
         if not self.is_first_load and hasattr(panel, 'on_show'):
             panel.on_show()
         self.is_first_load = False
