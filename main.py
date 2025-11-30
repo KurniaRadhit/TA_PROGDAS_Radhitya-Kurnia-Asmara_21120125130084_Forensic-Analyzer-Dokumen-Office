@@ -288,7 +288,7 @@ class ForensicAnalyzerApp:
             SteganographyPanel(content, self.file_path),
             ExtractorPanel(content, self.file_path)
         ]
-        for text, panel in zip(["Analisa Dokumen", "Stegano", "Extractor Embedded"], self.panels):
+        for text, panel in zip(["Analisa Dokumen", "Steganografi", "Extractor Embedded"], self.panels):
             ttk.Button(nav, text=text, 
                       command=lambda p=panel: self.show_panel(p)).pack(side="left", padx=6)
         self.show_panel(self.panels[0])
