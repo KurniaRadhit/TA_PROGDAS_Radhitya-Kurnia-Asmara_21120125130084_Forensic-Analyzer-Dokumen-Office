@@ -7,6 +7,7 @@ class FileSignatureAnalyzer:
         b"\x4D\x5A": ".exe", b"\x89PNG\r\n\x1A\n": ".png", b"\xFF\xD8\xFF": ".jpg",
         b"%PDF": ".pdf"
     }
+    
     SCRIPT_INDICATORS = {
         ".js": ["function ", "var ", "let ", "const ", "console.log", "document.getelementbyid"],
         ".ps1": ["powershell", "-encodedcommand"],
@@ -37,17 +38,5 @@ class FileSignatureAnalyzer:
     def _is_printable_text(sample: bytes) -> bool:
         return all(32 <= b <= 126 or b in (9, 10, 13) for b in sample)
 
-class EntropyCalculator:
-    @staticmethod
-    def calculate(data: bytes) -> float:
-        if not data:
-            return 0.0
-        counts = Counter(data)
-        total = len(data)
-        return -sum((c / total) * math.log2(c / total) for c in counts.values())
-
 def guess_extension(data: bytes) -> str:
     return FileSignatureAnalyzer.guess_extension(data)
-
-def calc_entropy(data: bytes) -> float:
-    return EntropyCalculator.calculate(data)
